@@ -61,5 +61,14 @@ def update_user(user_id: int):
     return jsonify(updated.model_dump()), 200
 
 
+@app.route("/api/users/<int:user_id>", methods=["DELETE"])
+def delete_user(user_id: int):
+    user = next((u for u in db._users if u.id == user_id), None)
+    if user is None:
+        return jsonify({"error": "User not found"}), 404
+    db._users.remove(user)
+    return jsonify({"message": "User deleted"}), 200
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
