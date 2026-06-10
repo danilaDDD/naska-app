@@ -7,12 +7,26 @@ from loggers import logger
 from middleware import register_middleware
 
 app = Flask(__name__)
+app.url_map.strict_slashes = False
 register_middleware(app)
 
 
 @app.route("/")
 def index():
     return jsonify({"message": "Hello, World!"})
+
+
+@app.route("/api/users", methods=["GET"])
+def list_users():
+    return jsonify({"users": [u.model_dump() for u in db._users]})
+
+
+@app.route("/api/users/<int:user_id>", methods=["GET"])
+def get_user(user_id: int):
+    user = next((u for u in db._users if u.id == user_id), None)
+    if user is None:
+        return jsonify({"error": "User not found"}), 404
+    return jsonify(user.model_dump())
 
 
 @app.route("/api/users", methods=["POST"])
