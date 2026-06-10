@@ -1,16 +1,14 @@
-import logging
 from flask import Flask, jsonify, request
 import db
 from pydantic import ValidationError
 from models import User
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-)
-logger = logging.getLogger(__name__)
+from loggers import logger
+from middleware import register_middleware
 
 app = Flask(__name__)
+register_middleware(app)
+
+
 @app.route("/")
 def index():
     return jsonify({"message": "Hello, World!"})
