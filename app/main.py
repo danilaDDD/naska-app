@@ -1,3 +1,4 @@
+import json
 from flask import Flask, jsonify, request
 import db
 from pydantic import ValidationError
@@ -23,10 +24,10 @@ def create_user():
             context={"users": db._users},
         )
     except ValidationError as e:
-        return jsonify({"error": e.errors()}), 400
+        return jsonify({"error": json.loads(e.json())}), 400
     db._users.append(user)
     db._next_id += 1
-    logger.info("Created user id=%d name=%s", user.id, user.name)
+
     return jsonify(user.model_dump()), 201
 
 
