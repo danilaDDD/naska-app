@@ -1,0 +1,31 @@
+# Образ для запуска тестов
+# Сборка:  docker build -f test.Docker -t simple-app-test:latest .
+# Запуск:  docker run --rm simple-app-test:latest
+# Свои аргументы pytest: docker run --rm -e PYTEST_ARGS="-q -k index" simple-app-test:latest
+
+# --- Стадия 1: сборка зависимостей ---
+FROM python:3.12-slim AS builder
+
+COPY app/requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# --- Стадия 2: runtime ---
+FROM python:3.12-slim
+
+# Аргументы pytest, переопределяются при запуске (docker run -e PYTEST_ARGS=...)
+ENV PYTEST_ARGS="-v"
+
+WORKDIR /app
+
+COPY --from=builder /install /usr/local
+COPY app/ .
+
+# /logs — каталог для логов приложения (loggers.py)
+RUN useradd --create-home appuser \
+    && mkdir /logs \
+    && chown appuser /logs
+USER appuser
+
+# shell-форма CMD, чтобы переменные окружения подставлялись при запуске.
+# no:cacheprovider — у non-root пользователя нет прав на запись в /app
+CMD pytest tests/ -p no:cacheprovider ${PYTEST_ARGS}
