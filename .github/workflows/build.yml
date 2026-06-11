@@ -1,0 +1,49 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r app/requirements.txt
+
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Lint Bash scripts
+        run: shellcheck scripts/*.sh
+
+      - name: Run tests
+        run: pytest app/tests/ -v
+
+      - name: Build Docker image
+        run: docker build -f app.Docker -t simple-app:latest .
+
+      - name: Test container health
+        run: |
+          docker run -d --name simple-app -p 5000:5000 simple-app:latest
+          for i in $(seq 1 10); do
+            if curl -fs http://localhost:5000/health; then
+              echo "Health check passed"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Health check failed"
+          docker logs simple-app
+          exit 1
