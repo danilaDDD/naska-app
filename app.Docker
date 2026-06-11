@@ -1,0 +1,35 @@
+# --- Стадия 1: сборка зависимостей ---
+FROM python:3.12-slim AS builder
+
+COPY app/requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# --- Стадия 2: runtime ---
+FROM python:3.12-slim
+
+# Параметры приложения, переопределяются при сборке (--build-arg APP_PORT=8000)
+# и при запуске (docker run -e APP_PORT=8000 -e GUNICORN_WORKERS=2 ...)
+ARG APP_PORT=5000
+ENV APP_PORT=${APP_PORT} \
+    GUNICORN_WORKERS=1
+
+WORKDIR /app
+
+COPY --from=builder /install /usr/local
+COPY app/ .
+
+# Non-root пользователь; /logs — каталог для логов приложения (loggers.py)
+RUN useradd --create-home appuser \
+    && mkdir /logs \
+    && chown appuser /logs
+USER appuser
+
+EXPOSE ${APP_PORT}
+
+# curl в slim-образе нет, проверяем через python
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD python -c "import os, urllib.request; urllib.request.urlopen(f\"http://localhost:{os.environ['APP_PORT']}/health\")" || exit 1
+
+# shell-форма CMD, чтобы переменные окружения подставлялись при запуске.
+# По умолчанию 1 worker: пользователи хранятся в памяти процесса
+CMD gunicorn --bind "0.0.0.0:${APP_PORT}" --workers "${GUNICORN_WORKERS}" main:app
