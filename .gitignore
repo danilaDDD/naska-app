@@ -63,4 +63,3 @@ htmlcov/
 
 # Migrations (keep structure, ignore data)
 migrations/versions/*.pyc
-CLAUDE.md
