@@ -16,6 +16,11 @@ def index():
     return jsonify({"message": "Hello, World!"})
 
 
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok"})
+
+
 @app.route("/api/users", methods=["GET"])
 def list_users():
     return jsonify({"users": [u.model_dump() for u in db._users]})
