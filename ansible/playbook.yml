@@ -1,0 +1,23 @@
+---
+# Deploy simple-app to Ubuntu servers
+#
+# Syntax check:
+#   ansible-playbook --syntax-check -i ansible/inventory.ini ansible/playbook.yml
+# Dry-run:
+#   ansible-playbook -i ansible/inventory.ini ansible/playbook.yml --check
+# Run:
+#   ansible-playbook -i ansible/inventory.ini ansible/playbook.yml
+
+- name: Deploy simple-app
+  hosts: webservers
+  become: true
+
+  vars:
+    app_dir: /opt/simple-app
+    app_port: 5000
+    gunicorn_workers: 1
+    docker_image: simple-app:latest
+
+  roles:
+    - docker
+    - app
