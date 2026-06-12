@@ -52,3 +52,5 @@ jobs:
           echo "Health check failed"
           docker logs simple-app
           exit 1
+      - name: run ansible deploy
+        run: ansible-playbook -i ansible/inventory.ini ansible/playbook.yml
