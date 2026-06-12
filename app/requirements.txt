@@ -2,3 +2,5 @@ flask>=3.0.0
 gunicorn>=21.2.0
 pytest>=8.0.0
 pydantic>=2.0.0
+ruff>=0.4.0
+shellcheck-py>=0.10.0

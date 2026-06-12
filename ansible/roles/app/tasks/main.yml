@@ -1,0 +1,63 @@
+---
+# Deploy the application via docker compose
+
+- name: Create directory {{ app_dir }}
+  ansible.builtin.file:
+    path: "{{ app_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Copy application files
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../app/"
+    dest: "{{ app_dir }}/app/"
+    mode: preserve
+
+- name: Copy docker-compose.yml and Dockerfiles
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../{{ item }}"
+    dest: "{{ app_dir }}/{{ item }}"
+    mode: "0644"
+  loop:
+    - docker-compose.yml
+    - app.Docker
+    - test.Docker
+    - .dockerignore
+
+- name: Create logs directory
+  ansible.builtin.file:
+    path: "{{ app_dir }}/logs"
+    state: directory
+    # uid 1000 — the appuser inside the container (see app.Docker)
+    owner: "1000"
+    mode: "0755"
+
+- name: Create .env with application parameters (jinja2 template)
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ app_dir }}/.env"
+    mode: "0644"
+  register: env_file
+
+- name: Start docker compose
+  ansible.builtin.command:
+    cmd: docker compose up -d --build
+    chdir: "{{ app_dir }}"
+  register: compose_result
+  # compose v2 writes status to stderr; "Started"/"Created" — container was recreated
+  changed_when: "'Started' in compose_result.stderr or 'Created' in compose_result.stderr"
+
+- name: Check that the container is running
+  ansible.builtin.command: !unsafe docker inspect --format '{{.State.Status}}' simple-app
+  register: container_status
+  changed_when: false
+  failed_when: container_status.stdout != 'running'
+
+- name: Check health endpoint
+  ansible.builtin.uri:
+    url: "http://localhost:{{ app_port }}/health"
+    status_code: 200
+  register: health
+  retries: 5
+  delay: 3
+  until: health.status == 200

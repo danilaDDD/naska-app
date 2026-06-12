@@ -36,6 +36,7 @@ def get_user(user_id: int):
 
 @app.route("/api/users", methods=["POST"])
 def create_user():
+    logger.info("Creating new user")
     data = request.get_json(silent=True) or {}
     try:
         user = User.model_validate(
