@@ -1,5 +1,5 @@
 ---
-# Deploy the application via docker compose
+# Деплоит приложение через docker compose
 
 - name: Create directory {{ app_dir }}
   ansible.builtin.file:
@@ -9,6 +9,7 @@
 
 - name: Copy application files
   ansible.builtin.copy:
+    # playbook_dir — директория, где лежит playbook.yml (ansible/), поэтому ../ — корень проекта
     src: "{{ playbook_dir }}/../app/"
     dest: "{{ app_dir }}/app/"
     mode: preserve
@@ -28,7 +29,8 @@
   ansible.builtin.file:
     path: "{{ app_dir }}/logs"
     state: directory
-    # uid 1000 — the appuser inside the container (see app.Docker)
+    # uid 1000 — appuser внутри контейнера (см. app.Docker); задаётся числом,
+    # потому что пользователя с таким именем на хосте нет
     owner: "1000"
     mode: "0755"
 
@@ -39,19 +41,25 @@
     mode: "0644"
   register: env_file
 
+# Три задачи ниже пропускаются в --check режиме: директория и файлы там только
+# симулируются, поэтому chdir и docker-команды упадут на несуществующих путях.
+
 - name: Start docker compose
   ansible.builtin.command:
     cmd: docker compose up -d --build
     chdir: "{{ app_dir }}"
   register: compose_result
-  # compose v2 writes status to stderr; "Started"/"Created" — container was recreated
+  # compose v2 пишет статус в stderr; "Started"/"Created" — контейнер пересоздан
   changed_when: "'Started' in compose_result.stderr or 'Created' in compose_result.stderr"
+  when: not ansible_check_mode
 
 - name: Check that the container is running
+  # !unsafe — запрещает Jinja2 интерпретировать {{.State.Status}} как шаблон
   ansible.builtin.command: !unsafe docker inspect --format '{{.State.Status}}' simple-app
   register: container_status
   changed_when: false
   failed_when: container_status.stdout != 'running'
+  when: not ansible_check_mode
 
 - name: Check health endpoint
   ansible.builtin.uri:
@@ -61,3 +69,4 @@
   retries: 5
   delay: 3
   until: health.status == 200
+  when: not ansible_check_mode

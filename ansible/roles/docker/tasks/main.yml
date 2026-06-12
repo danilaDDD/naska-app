@@ -1,17 +1,54 @@
 ---
-# Install Docker and docker compose
+# Устанавливает Docker CE и Compose plugin из официального репозитория Docker.
+# Дистрибутивный пакет docker.io не используется — на сервере уже есть containerd.io
+# из Docker-репо, который конфликтует с containerd/runc из Ubuntu/Debian.
 
-- name: Update apt cache
-  ansible.builtin.apt:
-    update_cache: true
-    cache_valid_time: 3600
-
-- name: Install Docker and docker compose
+- name: Install apt transport dependencies
   ansible.builtin.apt:
     name:
-      - docker.io
-      - docker-compose-v2
+      - ca-certificates
+      - curl
+      - gnupg
+      # python3-debian нужен модулю deb822_repository для записи .sources файла
+      - python3-debian
     state: present
+    update_cache: true
+
+- name: Create /etc/apt/keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Add Docker's official GPG key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/debian/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+
+# deb822_repository — современный формат .sources (в отличие от однострочного .list).
+# Требует python3-debian на хосте.
+- name: Add Docker apt repository
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: deb
+    uris: https://download.docker.com/linux/debian
+    suites: "{{ ansible_facts['distribution_release'] }}"
+    components: stable
+    architectures: amd64
+    signed_by: /etc/apt/keyrings/docker.asc
+    state: present
+
+- name: Install Docker CE and Compose plugin
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    update_cache: true
   notify: restart docker
 
 - name: Enable and start Docker daemon
@@ -24,4 +61,5 @@
   ansible.builtin.user:
     name: "{{ ansible_user }}"
     groups: docker
+    # append: true — добавить в группу, не заменяя существующие группы пользователя
     append: true

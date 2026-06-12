@@ -1,22 +1,35 @@
 ---
-# Deploy simple-app to Ubuntu servers
+# Deploy simple-app
 #
-# Syntax check:
-#   ansible-playbook --syntax-check -i ansible/inventory.ini ansible/playbook.yml
-# Dry-run:
-#   ansible-playbook -i ansible/inventory.ini ansible/playbook.yml --check
-# Run:
-#   ansible-playbook -i ansible/inventory.ini ansible/playbook.yml
+# Target server (app-server-1 / ruvds-fn1td):
+#   OS:   Debian GNU/Linux 11 (bullseye)
+#   CPU:  1 core
+#   RAM:  0.4 GB
+#   Disk: 9.7 GB
+#
+# Usage:
+#   Syntax check:  ansible-playbook --syntax-check -i ansible/inventory.ini ansible/playbook.yml
+#   Dry-run:       ansible-playbook -i ansible/inventory.ini ansible/playbook.yml --check
+#   Run:           ansible-playbook -i ansible/inventory.ini ansible/playbook.yml
 
 - name: Deploy simple-app
   hosts: webservers
   become: true
 
   vars:
-    app_dir: /opt/simple-app
+    app_dir: /projects/naska-app
     app_port: 5000
+    # 1 worker — сервер однопроцессорный с 0.4 GB RAM; больше воркеров нет смысла
     gunicorn_workers: 1
     docker_image: simple-app:latest
+
+  pre_tasks:
+    # apt-модуль требует python3-apt для --check режима, но не может установить его сам в dry-run.
+    # raw не зависит от Python на хосте; check_mode: false — выполняется реально даже при --check.
+    - name: Ensure python3-apt is installed (required for check mode)
+      ansible.builtin.raw: apt-get install -y python3-apt
+      changed_when: false
+      check_mode: false
 
   roles:
     - docker
